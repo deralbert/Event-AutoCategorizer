@@ -120,7 +120,7 @@
             "name": "updateProperties",
             "type": "object",
             "properties": {
-              "format": { "$ref": "CalendarItemFormat", "optional": true },
+              "format": { "$ref": "CalendarItemFormats", "optional": true },
               "item": { "$ref": "RawCalendarItem" },
               "returnFormat": { "$ref": "ReturnFormat", "optional": true },
               "metadata": { "type": "object", "additionalProperties": { "type": "any" }, "optional": true }

@@ -1,83 +1,92 @@
-// Function to determine the category based on event title
+import ICAL from './libs/ical.js';
+
+/**
+ * Mapping of category names to their associated keywords.
+ */
+const CATEGORY_MAP = {
+    Studies: ["ods", "eem", "sidi", "fe", "csp", "eün", "pe", "nm", "lsd"],
+    Private: ["unterhaltung"]
+};
+
+/**
+ * Determines the category for a given event title based on predefined keywords.
+ * @param {string} title - The event title.
+ * @returns {string|null} - The determined category or null if no match is found.
+ */
 function getCategoryForTitle(title) {
-    if (!title) return null; // Return null if no title is provided
-    const t = title.toLowerCase(); // Convert title to lowercase for case-insensitive matching
-
-    console.log(`[AutoCategorizeCalendar] Checking title: "${title}"`);
-
-    // Match specific keywords in the event title to assign a category
-    if (t.includes("running")) {
-        console.log(`[AutoCategorizeCalendar] Matched category: Private`);
-        return "Private";
-    }
-    if (t.includes("nm")) {
-        console.log(`[AutoCategorizeCalendar] Matched category: Studies`);
-        return "Studies";
-    }
-
-    console.log(`[AutoCategorizeCalendar] No category matched.`);
-    return null; // Return null if no category matches
+    if (!title) return null;
+    const t = title.toLowerCase();
+    return Object.entries(CATEGORY_MAP).find(([_, keywords]) => keywords.some(k => t.includes(k)))?.[0] || null;
 }
 
 /**
- * Handles automatic categorization of calendar events.
- * This function is triggered when an event is created or updated.
+ * Categorizes a calendar event by updating its categories based on the title.
+ * @param {Object} eventItem - The calendar event item.
  */
 async function autoCategorizeEvent(eventItem) {
     try {
-        console.log(`[AutoCategorizeCalendar] Processing event:`, eventItem);
-
-        // I am using this version of ical.js: https://unpkg.com/ical.js/dist/ical.es5.cjs
-        
-        // Convert the event's jCal data to an ICAL component
         const comp = new ICAL.Component(eventItem.item);
         const vevent = comp.getFirstSubcomponent("vevent");
+        if (!vevent) return;
 
-        if (!vevent) {
-            console.warn(`[AutoCategorizeCalendar] No VEVENT found in the event item.`);
-            return;
-        }
-
-        // Extract the event title (summary)
         const summary = vevent.getFirstPropertyValue("summary");
-        if (!summary) {
-            console.warn(`[AutoCategorizeCalendar] Event has no summary, skipping categorization.`);
-            return;
-        }
+        if (!summary) return;
 
-        // Determine the category based on the title
         const category = getCategoryForTitle(summary);
-        if (!category) return; // Skip if no category is matched
+        if (!category) return;
 
-        // Remove existing 'categories' properties to prevent duplicates
+        const existingCategories = vevent.getAllProperties("categories").map(prop => prop.getFirstValue());
+        if (existingCategories.includes(category)) return;
+
         vevent.removeAllProperties("categories");
-        // Add the determined category
         vevent.addPropertyWithValue("categories", category);
 
-        // Convert the updated event back to jCal format
-        const updatedItem = comp.toJSON();
-        console.log("[AutoCategorizeCalendar] Updated jCal item:", updatedItem);
-
-        // Update the event in the calendar
         await browser.calendar.items.update(eventItem.calendarId, eventItem.id, {
             format: "jcal",
-            item: updatedItem
+            item: comp.toJSON()
         });
-
-        console.log(`[AutoCategorizeCalendar] Successfully added category "${category}" to event`);
     } catch (error) {
-        // More detailed error handling for debugging
-        if (error instanceof DOMException) {
-            console.error("[AutoCategorizeCalendar] DOMException:", error.name, "-", error.message);
-        } else {
-            console.error("[AutoCategorizeCalendar] General error:", error);
-        }
+        console.error("[Event-AutoCategorizer] Error:", error);
     }
 }
 
-// Listen for newly created events and categorize them
-browser.calendar.items.onCreated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
+/**
+ * Converts a JavaScript Date object to jCal-compatible date-time format.
+ * @param {Date} date - The JavaScript Date object.
+ * @returns {string} - The formatted jCal date string.
+ */
+function toJCalDate(date) {
+    return date.toISOString().replace(/[-:]/g, "");
+}
 
-// Listen for updated events and reapply categorization
+/**
+ * Categorizes past calendar events from the last 7 days upon Thunderbird startup.
+ */
+async function autoCategorizePastEvents() {
+    try {
+        const now = new Date();
+        const pastWeek = new Date(now);
+        pastWeek.setDate(now.getDate() - 7);
+
+        const events = await browser.calendar.items.query({
+            rangeStart: toJCalDate(pastWeek),
+            rangeEnd: toJCalDate(now),
+            returnFormat: "jcal"
+        });
+
+        if (!events?.length) return;
+
+        for (const eventItem of events) {
+            await autoCategorizeEvent(eventItem);
+        }
+    } catch (error) {
+        console.error("[Event-AutoCategorizer] Error fetching past events:", error);
+    }
+}
+
+// Register event listeners for newly created and updated calendar events
+browser.calendar.items.onCreated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
 browser.calendar.items.onUpdated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
 
+// Run past event categorization once when Thunderbird starts
+(async () => await autoCategorizePastEvents())();
