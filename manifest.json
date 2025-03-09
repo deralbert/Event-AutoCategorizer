@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Event-AutoCategorizer",
     "version": "0.1",
-    "description": "Automatic categorization for calendar entries in Thunderbird Desktop",
+    "description": "Automatic categorization for calendar entries in Thunderbird Desktop.",
     "author": "deralbert",
     "browser_specific_settings": {
         "gecko": {

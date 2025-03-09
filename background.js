@@ -89,4 +89,4 @@ browser.calendar.items.onCreated.addListener(autoCategorizeEvent, { returnFormat
 browser.calendar.items.onUpdated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
 
 // Run past event categorization once when Thunderbird starts
-(async () => await autoCategorizePastEvents())();
+autoCategorizePastEvents();
