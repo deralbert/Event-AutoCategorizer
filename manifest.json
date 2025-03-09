@@ -1,5 +1,5 @@
 {
-    "manifest_version": 3,
+    "manifest_version": 2,
     "name": "Event-AutoCategorizer",
     "version": "0.1",
     "description": "Automatic categorization for calendar entries in Thunderbird Desktop.",
@@ -18,7 +18,8 @@
             "libs/ical.js",
             "background.js"
         ],
-        "type": "module"
+        "type": "module",
+        "persistent": true
     },
     "experiment_apis": {
         "calendar_calendars": {
