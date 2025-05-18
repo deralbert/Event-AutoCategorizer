@@ -4,8 +4,9 @@ import ICAL from './libs/ical.js';
  * Mapping of category names to their associated keywords.
  */
 const CATEGORY_MAP = {
-    Studies: ["ods", "eem", "sidi", "fe", "csp", "eün", "pe", "nm", "lsd"],
-    Private: ["unterhaltung"]
+    Studies: ["ods", "eem", "sidi", "fe", "csp", "eün", "pe", "nm", "lsd", "rls", "sst", "bbzs", "esuemv", "wfem"],
+    Private: ["unterhaltung"],
+    Sport: ["laufen", "gehen", "statischer sport"]
 };
 
 /**
@@ -15,8 +16,17 @@ const CATEGORY_MAP = {
  */
 function getCategoryForTitle(title) {
     if (!title) return null;
-    const t = title.toLowerCase();
-    return Object.entries(CATEGORY_MAP).find(([_, keywords]) => keywords.some(k => t.includes(k)))?.[0] || null;
+
+    // normalise to lower-case words, stripping punctuation
+    const words = title
+        .toLowerCase()
+        .split(/[^a-zäöüß]+/u)   // keep German letters, break on everything else
+        .filter(Boolean);        // remove empty strings
+
+    return Object.entries(CATEGORY_MAP)
+        .find(([_, keywords]) =>
+            keywords.some(k => words.includes(k.toLowerCase()))
+        )?.[0] || null;
 }
 
 /**
