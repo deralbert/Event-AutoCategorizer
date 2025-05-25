@@ -10,8 +10,8 @@ const CATEGORY_MAP = {
 };
 
 /**
- * Determines the category for a given event title based on predefined keywords.
- * @param {string} title - The event title.
+ * Determines the category for a given item title based on predefined keywords.
+ * @param {string} title - The item title.
  * @returns {string|null} - The determined category or null if no match is found.
  */
 function getCategoryForTitle(title) {
@@ -30,33 +30,39 @@ function getCategoryForTitle(title) {
 }
 
 /**
- * Categorizes a calendar event by updating its categories based on the title.
- * @param {Object} eventItem - The calendar event item.
+ * Categorizes a calendar item (event or task) by updating its categories based on the title.
+ * @param {Object} item - The calendar item.
  */
-async function autoCategorizeEvent(eventItem) {
+async function autoCategorizeItem(item) {
     try {
-        const comp = new ICAL.Component(eventItem.item);
-        const vevent = comp.getFirstSubcomponent("vevent");
-        if (!vevent) return;
+        const comp = new ICAL.Component(item.item);
+        const subcomponents = ["vevent", "vtodo"];
 
-        const summary = vevent.getFirstPropertyValue("summary");
-        if (!summary) return;
+        for (const type of subcomponents) {
+            const entry = comp.getFirstSubcomponent(type);
+            if (!entry) continue;
 
-        const category = getCategoryForTitle(summary);
-        if (!category) return;
+            const summary = entry.getFirstPropertyValue("summary");
+            if (!summary) continue;
 
-        const existingCategories = vevent.getAllProperties("categories").map(prop => prop.getFirstValue());
-        if (existingCategories.includes(category)) return;
+            const category = getCategoryForTitle(summary);
+            if (!category) continue;
 
-        vevent.removeAllProperties("categories");
-        vevent.addPropertyWithValue("categories", category);
+            const existingCategories = entry.getAllProperties("categories").map(p => p.getFirstValue());
+            if (existingCategories.includes(category)) continue;
 
-        await browser.calendar.items.update(eventItem.calendarId, eventItem.id, {
-            format: "jcal",
-            item: comp.toJSON()
-        });
+            entry.removeAllProperties("categories");
+            entry.addPropertyWithValue("categories", category);
+
+            await browser.calendar.items.update(item.calendarId, item.id, {
+                format: "jcal",
+                item: comp.toJSON()
+            });
+
+            break; // stop after categorizing first matching subcomponent
+        }
     } catch (error) {
-        console.error("[Event-AutoCategorizer] Error:", error);
+        console.error("[AutoCategorizer] Error:", error);
     }
 }
 
@@ -70,33 +76,33 @@ function toJCalDate(date) {
 }
 
 /**
- * Categorizes past calendar events from the last 7 days upon Thunderbird startup.
+ * Categorizes past calendar items from the last 7 days upon Thunderbird startup.
  */
-async function autoCategorizePastEvents() {
+async function autoCategorizePastItems() {
     try {
         const now = new Date();
         const pastWeek = new Date(now);
         pastWeek.setDate(now.getDate() - 7);
 
-        const events = await browser.calendar.items.query({
+        const items = await browser.calendar.items.query({
             rangeStart: toJCalDate(pastWeek),
             rangeEnd: toJCalDate(now),
             returnFormat: "jcal"
         });
 
-        if (!events?.length) return;
+        if (!items?.length) return;
 
-        for (const eventItem of events) {
-            await autoCategorizeEvent(eventItem);
+        for (const item of items) {
+            await autoCategorizeItem(item);
         }
     } catch (error) {
-        console.error("[Event-AutoCategorizer] Error fetching past events:", error);
+        console.error("[AutoCategorizer] Error fetching past items:", error);
     }
 }
 
-// Register event listeners for newly created and updated calendar events
-browser.calendar.items.onCreated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
-browser.calendar.items.onUpdated.addListener(autoCategorizeEvent, { returnFormat: "jcal" });
+// Register event listeners for newly created and updated calendar items
+browser.calendar.items.onCreated.addListener(autoCategorizeItem, { returnFormat: "jcal" });
+browser.calendar.items.onUpdated.addListener(autoCategorizeItem, { returnFormat: "jcal" });
 
 // Run past event categorization once when Thunderbird starts
-autoCategorizePastEvents().catch(error => console.error("[Event-AutoCategorizer] Startup Error:", error));
+autoCategorizePastItems().catch(error => console.error("[AutoCategorizer] Startup Error:", error));
