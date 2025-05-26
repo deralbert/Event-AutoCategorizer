@@ -17,16 +17,18 @@ const CATEGORY_MAP = {
 function getCategoryForTitle(title) {
     if (!title) return null;
 
-    // normalise to lower-case words, stripping punctuation
-    const words = title
-        .toLowerCase()
-        .split(/[^a-zäöüß]+/u)   // keep German letters, break on everything else
-        .filter(Boolean);        // remove empty strings
+    const normalizedTitle = title.toLowerCase();
+    const words = normalizedTitle.split(/[^a-zäöüß]+/u).filter(Boolean);
 
-    return Object.entries(CATEGORY_MAP)
-        .find(([_, keywords]) =>
-            keywords.some(k => words.includes(k.toLowerCase()))
-        )?.[0] || null;
+    return Object.entries(CATEGORY_MAP).find(([_, keywords]) =>
+        keywords.some(keyword => {
+            const k = keyword.toLowerCase();
+            // Match exact word or full phrase
+            return words.includes(k) || normalizedTitle.includes(` ${k} `) ||
+                normalizedTitle.startsWith(`${k} `) || normalizedTitle.endsWith(` ${k}`) ||
+                normalizedTitle === k;
+        })
+    )?.[0] || null;
 }
 
 /**
