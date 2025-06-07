@@ -6,7 +6,12 @@ import ICAL from './libs/ical.js';
 const CATEGORY_MAP = {
     Studies: ["ods", "eem", "sidi", "fe", "csp", "eün", "pe", "nm", "lsd", "rls", "sst", "bbzs", "esuemv", "wfem"],
     Private: ["unterhaltung"],
-    Sport: ["laufen", "gehen", "statischer sport"]
+    Sport: ["laufen", "gehen", "statischer sport"],
+    Organization: ["Organisation"],
+    Household: ["Haushalt"],
+    Health: ["Gesundheit"],
+    SelfCare: ["Selbstpflege"],
+    Food: ["Nahrung"]
 };
 
 /**
